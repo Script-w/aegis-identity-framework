@@ -56,3 +56,6 @@ cd security-brain-python
 pip install -r requirements.txt
 python main.py
  ```
+
+## 📊 Legacy Scaling Vision 
+Aegis is built with the "Security by Design" philosophy. By decoupling the authentication engine from the threat analysis layer, the system can scale to millions of users while maintaining a sub-200ms authentication latency.
