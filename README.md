@@ -48,6 +48,7 @@ Set the following environment variables in your GitHub Codespaces Secrets:
 ```bash
 cd auth-core-java
 ./mvnw spring-boot:run
+'''
  
 **Python Security Service:**
 ```bash
