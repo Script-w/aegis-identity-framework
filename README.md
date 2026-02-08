@@ -60,4 +60,4 @@ python main.py
 ## 📊 Legacy Scaling Vision 
 Aegis follows the "Security by Design" philosophy. By decoupling the authentication engine from the threat analysis layer, the system is designed to scale horizontally. In a production environment, the Java core remains focused on low-latency throughput, while the Python layer can be scaled independently to handle complex security analytics.
 
-​Created by Script-w as part of the Legacy Scaling Project..
+​**Created by <href https://github.com/script-w> as part of the Legacy Scaling Project..
