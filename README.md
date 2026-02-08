@@ -49,3 +49,9 @@ Set the following environment variables in your GitHub Codespaces Secrets:
 cd auth-core-java
 ./mvnw spring-boot:run
  
+**Python Security Service:**
+```bash
+cd security-brain-python
+pip install -r requirements.txt
+python main.py
+ 
