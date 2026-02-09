@@ -2,6 +2,7 @@ package com.aegis.service;
 
 import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
+import com.aegis.security.PasswordHasher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -10,18 +11,21 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final PasswordHasher passwordHasher;
 
     public void registerUser(String username, String password) {
-        // Pre-Flight Check: Does the user already exist?
+        // 1. Pre-Flight Check: Check for existing user
         if (userRepository.findByUsername(username).isPresent()) {
             throw new RuntimeException("Username already taken!");
         }
 
+        // 2. Hash the password with Argon2id
+        String securedHash = passwordHasher.hash(password);
+
+        // 3. Save the secured user to Supabase
         User newUser = new User();
         newUser.setUsername(username);
-        
-        // TODO: In the next step, we'll wrap this in Argon2id hashing
-        newUser.setPasswordHash(password); 
+        newUser.setPasswordHash(securedHash); 
 
         userRepository.save(newUser);
     }
