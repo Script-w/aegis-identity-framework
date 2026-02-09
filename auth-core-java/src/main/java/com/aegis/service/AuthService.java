@@ -29,4 +29,15 @@ public class AuthService {
 
         userRepository.save(newUser);
     }
+
+    public boolean verifyLogin(String username, String password) {
+        User user = userRepository.findByUsername(username);
+        if (user != null) {
+            // Convert the String to char[] right at the gate
+            char[] passwordChars = password.toCharArray();
+            return passwordHasher.verify(user.getPasswordHash(), passwordChars);
+        }
+        return false;
+    }
+    
 }
