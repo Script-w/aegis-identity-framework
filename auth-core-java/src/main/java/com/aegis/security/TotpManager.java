@@ -44,7 +44,7 @@ public class TotpManager {
         return new SecretKeySpec(Base64.getDecoder().decode(base64), "HmacSHA1");
     }
 
-    public boolean verifyCode(SecretKey key, int code) {
+    public boolean verifyCode throws InvalidKeyException(SecretKey key, int code) {
         Instant now = Instant.now();
         int generated = totp.generateOneTimePassword(key, now);
         return generated == code;
