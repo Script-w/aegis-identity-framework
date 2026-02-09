@@ -26,9 +26,10 @@ public final class PasswordHasher {
      */
     public String hash(char[] password) {
         try {
-            return argon2.hash(ITERATIONS, MEMORY_KIB, PARALLELISM, password.toCharArray());
+            return argon2.hash(ITERATIONS, MEMORY_KIB, PARALLELISM, password);
         } finally {
-            wipe(password);
+            // Wipe the array immediately after hashing
+            java.util.Arrays.fill(password, '\0');
         }
     }
 
@@ -41,9 +42,10 @@ public final class PasswordHasher {
      */
     public boolean verify(String encodedHash, char[] password) {
         try {
-            return argon2.verify(encodedHash, password.toCharArray());
+            return argon2.verify(encodedHash, password);
         } finally {
-            wipe(password);
+            // Wipe the array immediately after hashing
+            java.util.Arrays.fill(password, '\0');
         }
     }
 
