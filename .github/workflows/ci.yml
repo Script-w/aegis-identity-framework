@@ -1,0 +1,36 @@
+name: Aegis CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-java:
+    name: Build & Test Java Core
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/checkout@v4
+          with:
+            java-version: '17'
+            distribution: 'temurin'
+            cache: maven
+
+      - name: Grant Execute Permission for Wrapper
+        run: chmod +x auth-core-java/mvnw
+
+      - name: Build with Maven
+        run: |
+          cd auth-core-java
+          ./mvnw clean verify -DskipTests=false
+        env:
+        # Inject dummy variables so the build doesn't fail due to missing secrets
+          DB_URL: jdbc:postgresql://localhost:5432/test
+          DB_USERNAME: test
+          DB_PASSWORD: test
