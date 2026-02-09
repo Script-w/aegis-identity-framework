@@ -9,6 +9,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
+import java.security.InvalidKeyException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
