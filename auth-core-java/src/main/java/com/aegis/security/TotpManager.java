@@ -1,5 +1,6 @@
 package com.aegis.security;
 
+import org.springframework.stereotype.Component;
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 
 import javax.crypto.KeyGenerator;
@@ -19,6 +20,7 @@ import java.util.Base64;
     *
      * Note: store secrets encrypted at rest (use EncryptionService/Vault).
       */
+      @Component
       public class TotpManager {
           private static final Duration TIME_STEP = Duration.ofSeconds(30);
               private static final String HMAC_ALGO = "HmacSHA1"; // compatible default
