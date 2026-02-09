@@ -26,7 +26,7 @@ public final class PasswordHasher {
      */
     public String hash(char[] password) {
         try {
-            return argon2.hash(ITERATIONS, MEMORY_KIB, PARALLELISM, password);
+            return argon2.hash(ITERATIONS, MEMORY_KIB, PARALLELISM, password.toCharArray());
         } finally {
             wipe(password);
         }
@@ -41,7 +41,7 @@ public final class PasswordHasher {
      */
     public boolean verify(String encodedHash, char[] password) {
         try {
-            return argon2.verify(encodedHash, password);
+            return argon2.verify(encodedHash, password.toCharArray());
         } finally {
             wipe(password);
         }
