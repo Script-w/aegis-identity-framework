@@ -31,13 +31,15 @@ public class AuthService {
     }
 
     public boolean verifyLogin(String username, String password) {
-        User user = userRepository.findByUsername(username);
-        if (user != null) {
-            // Convert the String to char[] right at the gate
+    // 1. findByUsername likely returns Optional<User>
+    return userRepository.findByUsername(username)
+        .map(user -> {
+            // 2. If user exists, verify password using char[]
             char[] passwordChars = password.toCharArray();
             return passwordHasher.verify(user.getPasswordHash(), passwordChars);
-        }
-        return false;
+        })
+        .orElse(false); // 3. If user doesn't exist, return false
     }
+                
     
 }
