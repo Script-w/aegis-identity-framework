@@ -1,0 +1,6 @@
+fastapi[all]
+uvicorn
+pyotp
+qrcode[pil]
+python-jose[cryptography]
+passlib[argon2]
