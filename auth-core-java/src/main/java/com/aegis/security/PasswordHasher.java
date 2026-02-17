@@ -54,4 +54,9 @@ public final class PasswordHasher {
             java.util.Arrays.fill(c, '\0');
         }
     }
+
+    public String hash(String password) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'hash'");
+    }
 }
