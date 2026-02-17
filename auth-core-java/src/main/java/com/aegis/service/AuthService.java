@@ -7,22 +7,33 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor // This handles the injection for all 'final' fields automatically
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
+    private final MfaClient mfaClient;
 
+    public String initiateMfaSetup(String username) {
+        return userRepository.findByUsername(username)
+            .map(user -> {
+                // Pre-Flight: In production, generate a unique secret per user
+                String secret = "JBSWY3DPEHPK3PXP"; 
+                
+                // Call the Python Brain for the QR Code
+                return mfaClient.getQrCode(username, secret);
+            })
+            .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+    
     public void registerUser(String username, String password) {
-        // 1. Pre-Flight Check: Check for existing user
         if (userRepository.findByUsername(username).isPresent()) {
             throw new RuntimeException("Username already taken!");
         }
 
-        // 2. Hash the password with Argon2id
-        String securedHash = passwordHasher.hash(password);
+        // Convert to char[] immediately for security (Memory Safety)
+        String securedHash = passwordHasher.hash(password.toCharArray());
 
-        // 3. Save the secured user to Supabase
         User newUser = new User();
         newUser.setUsername(username);
         newUser.setPasswordHash(securedHash); 
@@ -31,15 +42,11 @@ public class AuthService {
     }
 
     public boolean verifyLogin(String username, String password) {
-    // 1. findByUsername likely returns Optional<User>
-    return userRepository.findByUsername(username)
-        .map(user -> {
-            // 2. If user exists, verify password using char[]
-            char[] passwordChars = password.toCharArray();
-            return passwordHasher.verify(user.getPasswordHash(), passwordChars);
-        })
-        .orElse(false); // 3. If user doesn't exist, return false
+        return userRepository.findByUsername(username)
+            .map(user -> {
+                char[] passwordChars = password.toCharArray();
+                return passwordHasher.verify(user.getPasswordHash(), passwordChars);
+            })
+            .orElse(false);
     }
-                
-    
 }
