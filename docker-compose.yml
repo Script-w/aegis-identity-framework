@@ -20,7 +20,7 @@ services:
       - "${SERVER_PORT:-8080}:8080"
     environment:
       # These override application.properties for Docker-to-Docker communication
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://aegis-db:5432/${DB_NAME:-aegis_db}
+      - SPRING_DATASOURCE_URL=${DB_URL}
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - SECURITY_BRAIN_URL=http://security-brain:8000
