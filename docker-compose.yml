@@ -1,0 +1,60 @@
+services:
+  # --- THE BRAIN (Python FastAPI) ---
+  security-brain:
+    build: ./security-brain-python
+    container_name: security-brain
+    env_file: .env
+    ports:
+      - "${SECURITY_BRAIN_PORT:-8000}:8000"
+    volumes:
+      - ./security-brain-python:/app  # Allows for hot-reloading code changes
+    networks:
+      - aegis-net
+
+  # --- THE HEART (Java Spring Boot) ---
+  auth-core:
+    build: ./auth-core-java
+    container_name: auth-core
+    env_file: .env
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    environment:
+      # These override application.properties for Docker-to-Docker communication
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://aegis-db:5432/${DB_NAME:-aegis_db}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SECURITY_BRAIN_URL=http://security-brain:8000
+    depends_on:
+      aegis-db:
+        condition: service_healthy # Waits for DB to be ready before starting Java
+      security-brain:
+        condition: service_started
+    networks:
+      - aegis-net
+
+  # --- THE FOUNDATION (PostgreSQL) ---
+  aegis-db:
+    image: postgres:15-alpine
+    container_name: aegis-db
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${DB_NAME:-aegis_db}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql # Genesis Script
+      - aegis_data:/var/lib/postgresql/data # Persistence
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-aegis_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aegis-net
+
+networks:
+  aegis-net:
+    driver: bridge
+
+volumes:
+  aegis_data: # Keeps users in the DB even if containers stop
