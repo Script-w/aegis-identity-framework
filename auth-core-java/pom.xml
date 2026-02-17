@@ -11,8 +11,8 @@
     </parent>
 
     <groupId>com.aegis</groupId>
-    <artifactId>auth-core-java</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+        <artifactId>auth-core-java</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
     <name>Aegis Identity Core</name>
 
     <properties>
