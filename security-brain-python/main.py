@@ -1,58 +1,44 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from app.services.mfa_service import MfaService
+import qrcode
+import io
+import base64
 
-# Initialize the FastAPI app
-app = FastAPI(
-    title="Aegis Security Brain",
-    description="Intelligent MFA and Security Logic Layer",
-    version="1.0.0"
-)
+app = FastAPI(title="Aegis Security Brain")
 
-# Pydantic model for incoming requests (ensures data integrity)
+# The schema matching our Java MfaClient request
 class MfaSetupRequest(BaseModel):
     username: str
     secret: str
 
-# Dependency Injection for our service
-def get_mfa_service():
-    return MfaService(issuer_name="AegisFramework")
-
 @app.get("/health")
-async def health_check():
-    """Service health check for CI/CD and Orchestration."""
+def health_check():
     return {"status": "active", "service": "security-brain"}
 
 @app.post("/mfa/setup")
-async def setup_mfa(
-    request: MfaSetupRequest, 
-    service: MfaService = Depends(get_mfa_service)
-):
-    """
-    Receives a username and secret (from Java Core),
-    returns a Base64 QR code for the frontend.
-    """
+def generate_qr(request: MfaSetupRequest):
     try:
-        qr_code_base64 = service.generate_qr_code(
-            username=request.username, 
-            secret_base64=request.secret
-        )
+        # Generate TOTP provisioning URI
+        # Format: otpauth://totp/Aegis:USERNAME?secret=SECRET&issuer=Aegis
+        uri = f"otpauth://totp/Aegis:{request.username}?secret={request.secret}&issuer=Aegis"
+        
+        # Create QR Code
+        qr = qrcode.QRCode(version=1, box_size=10, border=5)
+        qr.add_data(uri)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert image to Base64 string for the Java Heart to consume
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        img_str = base64.b64encode(buf.getvalue()).decode()
         
         return {
             "status": "success",
             "data": {
-                "username": request.username,
-                "qr_code": qr_code_base64,
-                "content_type": "image/png",
-                "encoding": "base64"
+                "qr_code": img_str
             }
         }
     except Exception as e:
-        # Log the error and return a 500
-        print(f"MFA Setup Error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate MFA QR code")
-
-# Entry point for local execution on your Cubot Tab 60
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+        raise HTTPException(status_code=500, detail=str(e))
