@@ -56,7 +56,11 @@ public final class PasswordHasher {
     }
 
     public String hash(String password) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'hash'");
+        char[] passwordChars = password.toCharArray();
+        try {
+            return hash(passwordChars);
+        } finally {
+            wipe(passwordChars);
+        }
     }
 }
