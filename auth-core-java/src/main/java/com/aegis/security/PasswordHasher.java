@@ -1,5 +1,7 @@
 package com.aegis.security;
 
+import org.springframework.stereotype.Component;
+
 import de.mkammerer.argon2.Argon2;
 import de.mkammerer.argon2.Argon2Factory;
 
@@ -9,6 +11,8 @@ import de.mkammerer.argon2.Argon2Factory;
  * - Zeroes password char[] after use.
  * - Tune ITERATIONS / MEMORY_KIB / PARALLELISM to your deployment.
  */
+
+@Component
 public final class PasswordHasher {
 
     // Recommended defaults — tune to your environment
