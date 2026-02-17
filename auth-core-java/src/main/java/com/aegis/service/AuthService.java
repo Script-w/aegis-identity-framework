@@ -31,8 +31,7 @@ public class AuthService {
             throw new RuntimeException("Username already taken!");
         }
 
-        // Convert to char[] immediately for security (Memory Safety)
-        String securedHash = passwordHasher.hash(password.toCharArray());
+        String securedHash = passwordHasher.hash(password);
 
         User newUser = new User();
         newUser.setUsername(username);
