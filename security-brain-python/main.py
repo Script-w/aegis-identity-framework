@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import qrcode
+import pyotp
 import io
 import base64
 
@@ -11,6 +12,26 @@ class MfaSetupRequest(BaseModel):
     username: str
     secret: str
 
+# The schema for verification
+class MfaVerifyRequest(BaseModel):
+    secret: str
+    code: str
+
+@app.post("/mfa/verify")
+def verify_mfa(request: MfaVerifyRequest):
+    try:
+        totp = pyotp.TOTP(request.secret)
+        # Verify the 6-digit code against the shared secret
+        is_valid = totp.verify(request.code)
+        
+        if is_valid:
+            return {"status": "success", "message": "Code verified"}
+        else:
+            return {"status": "failure", "message": "Invalid code"}, 400
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/health")
 def health_check():
     return {"status": "active", "service": "security-brain"}
