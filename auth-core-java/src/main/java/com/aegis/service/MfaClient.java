@@ -15,8 +15,9 @@ public class MfaClient {
     @Value("${aegis.security.brain-url}")
     private String securityBrainUrl;
 
-    public MfaClient() {
-        this.restTemplate = new RestTemplate();
+    public MfaClient(RestTemplate restTemplate, @Value("${aegis.security.brain-url}") String securityBrainUrl) {
+        this.restTemplate = restTemplate;
+        this.securityBrainUrl = securityBrainUrl;
     }
 
     public String getQrCode(String username, String secret) {
