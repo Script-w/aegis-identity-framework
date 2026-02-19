@@ -3,6 +3,7 @@ package com.aegis.service;
 import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
+import com.aegis.service.MfaClient.MfaSetupResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,14 +15,15 @@ public class AuthService {
     private final PasswordHasher passwordHasher;
     private final MfaClient mfaClient;
 
-    public String initiateMfaSetup(String username) {
+    public MfaSetupResult initiateMfaSetup(String username) {
         return userRepository.findByUsername(username)
             .map(user -> {
                 // Pre-Flight: In production, generate a unique secret per user
                 String secret = "JBSWY3DPEHPK3PXP"; 
                 
                 // Call the Python Brain for the QR Code
-                return mfaClient.getQrCode(username, secret);
+                return mfaClient.getQrCode(username, secret)
+                        .orElse(MfaSetupResult.failure("No response from Security Brain"));
             })
             .orElseThrow(() -> new RuntimeException("User not found"));
     }

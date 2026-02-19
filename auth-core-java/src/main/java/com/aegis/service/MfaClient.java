@@ -1,5 +1,6 @@
 package com.aegis.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,12 +50,13 @@ public class MfaClient {
                 return Optional.of(MfaSetupResult.failure("Empty response"));
             }
 
-            if (!StringUtils.hasText(body.qrCode)) {
-                log.warn("Security Brain response missing qrCode for user {}: {}", username, body.message);
-                return Optional.of(MfaSetupResult.failure(body.message));
+            String qr = body.getQrCode();
+            if (!StringUtils.hasText(qr)) {
+                log.warn("Security Brain response missing qrCode for user {}: {}", username, body.getMessage());
+                return Optional.of(MfaSetupResult.failure(body.getMessage()));
             }
 
-            return Optional.of(MfaSetupResult.success(body.qrCode));
+            return Optional.of(MfaSetupResult.success(qr));
         } catch (RestClientResponseException e) {
             log.error("Security Brain call failed with status {} for user {}: {}", e.getRawStatusCode(), username, e.getResponseBodyAsString(), e);
             return Optional.of(MfaSetupResult.failure("Security Brain error: " + e.getRawStatusCode()));
@@ -90,7 +92,7 @@ public class MfaClient {
 
     public static final class MfaSetupResponse {
         private String message;
-        private String qrCode;
+        private Data data;
 
         public String getMessage() {
             return message;
@@ -100,12 +102,29 @@ public class MfaClient {
             this.message = message;
         }
 
-        public String getQrCode() {
-            return qrCode;
+        public Data getData() {
+            return data;
         }
 
-        public void setQrCode(String qrCode) {
-            this.qrCode = qrCode;
+        public void setData(Data data) {
+            this.data = data;
+        }
+
+        public String getQrCode() {
+            return data != null ? data.getQrCode() : null;
+        }
+
+        public static final class Data {
+            @JsonProperty("qr_code")
+            private String qrCode;
+
+            public String getQrCode() {
+                return qrCode;
+            }
+
+            public void setQrCode(String qrCode) {
+                this.qrCode = qrCode;
+            }
         }
     }
 
