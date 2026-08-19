@@ -46,6 +46,9 @@ Set the following environment variables in `.env` or your deployment secret stor
 * `JWT_EXPIRATION`: token lifetime in milliseconds; defaults to one hour.
 
 ### 3. Launching the Services
+
+The default Docker Compose setup runs the Java service, Python service, and PostgreSQL locally. Inside Compose, the database is reached as `aegis-db`; do not use `localhost` for the Java container's database URL.
+
 **Java Backend:**
 ```bash
 cd auth-core-java
