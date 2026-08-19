@@ -4,11 +4,15 @@ import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
 import com.aegis.security.MfaSecretProtector;
+import com.aegis.security.LoginAttemptPolicy;
 import com.aegis.security.TotpManager;
 import com.aegis.service.MfaClient.MfaSetupResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Arrays;
 
 @Service
 public class AuthService {
@@ -19,15 +23,18 @@ public class AuthService {
     private final MfaClient mfaClient;
     private final TotpManager totpManager;
     private final MfaSecretProtector mfaSecretProtector;
+    private final LoginAttemptPolicy loginAttemptPolicy;
 
     public AuthService(UserRepository userRepository, PasswordHasher passwordHasher,
                        MfaClient mfaClient, TotpManager totpManager,
-                       MfaSecretProtector mfaSecretProtector) {
+                       MfaSecretProtector mfaSecretProtector,
+                       LoginAttemptPolicy loginAttemptPolicy) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.mfaClient = mfaClient;
         this.totpManager = totpManager;
         this.mfaSecretProtector = mfaSecretProtector;
+        this.loginAttemptPolicy = loginAttemptPolicy;
     }
 
     public MfaSetupResult initiateMfaSetup(String username) {
@@ -95,24 +102,45 @@ public class AuthService {
         return verifyLogin(username, password, null);
     }
 
+    @Transactional
     public boolean verifyLogin(String username, String password, String mfaCode) {
-        boolean verified = userRepository.findByUsername(username)
+        boolean verified = userRepository.findByUsernameForAuthentication(username)
             .map(user -> {
-                char[] passwordChars = password.toCharArray();
-                boolean passwordValid = passwordHasher.verify(user.getPasswordHash(), passwordChars);
-                if (!passwordValid || !user.isMfaEnabled()) {
-                    return passwordValid;
-                }
-                String storedSecret = user.getMfaSecret();
-                String secret;
-                try {
-                    secret = mfaSecretProtector.unprotect(storedSecret);
-                } catch (IllegalStateException exception) {
-                    log.error("MFA secret could not be decrypted for user {}", username);
+                if (loginAttemptPolicy.isLocked(user)) {
                     return false;
                 }
-                migrateLegacySecret(user, storedSecret, secret);
-                return verifyTotp(secret, mfaCode);
+                char[] passwordChars = password.toCharArray();
+                boolean passwordValid;
+                try {
+                    passwordValid = passwordHasher.verify(user.getPasswordHash(), passwordChars);
+                } finally {
+                    Arrays.fill(passwordChars, '\0');
+                }
+
+                boolean loginValid = passwordValid;
+                if (passwordValid && user.isMfaEnabled()) {
+                    String storedSecret = user.getMfaSecret();
+                    String secret;
+                    try {
+                        secret = mfaSecretProtector.unprotect(storedSecret);
+                    } catch (IllegalStateException exception) {
+                        log.error("MFA secret could not be decrypted for user {}", username);
+                        loginValid = false;
+                        secret = null;
+                    }
+                    if (secret != null) {
+                        migrateLegacySecret(user, storedSecret, secret);
+                        loginValid = verifyTotp(secret, mfaCode);
+                    }
+                }
+
+                if (loginValid) {
+                    loginAttemptPolicy.recordSuccess(user);
+                } else {
+                    loginAttemptPolicy.recordFailure(user);
+                }
+                userRepository.save(user);
+                return loginValid;
             })
             .orElse(false);
         log.info("Login attempt completed with success={}", verified);

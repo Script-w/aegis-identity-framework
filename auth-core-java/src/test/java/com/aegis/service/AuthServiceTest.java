@@ -4,12 +4,15 @@ import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
 import com.aegis.security.MfaSecretProtector;
+import com.aegis.security.LoginAttemptPolicy;
 import com.aegis.security.TotpManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.Optional;
+import java.time.Clock;
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,7 +31,8 @@ class AuthServiceTest {
         mfaClient = new StubMfaClient();
         totpManager = new TotpManager();
         authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient, totpManager,
-                new MfaSecretProtector(MFA_KEY));
+                new MfaSecretProtector(MFA_KEY),
+                new LoginAttemptPolicy(5, Duration.ofMinutes(15), Clock.systemUTC()));
     }
 
     @Test
@@ -62,6 +66,20 @@ class AuthServiceTest {
     @Test
     void verifyLoginReturnsFalseForUnknownUser() {
         assertFalse(authService.verifyLogin("missing", "password"));
+    }
+
+    @Test
+    void locksAccountAfterFiveFailedLogins() {
+        User user = new User();
+        user.setPasswordHash(passwordHasher.hash("password"));
+        userRepository.user = user;
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertFalse(authService.verifyLogin("user", "wrong-password"));
+        }
+
+        assertNotNull(user.getLockedUntil());
+        assertFalse(authService.verifyLogin("user", "password"));
     }
 
     @Test
@@ -128,7 +146,8 @@ class AuthServiceTest {
         private final UserRepository proxy = (UserRepository) Proxy.newProxyInstance(
                 UserRepository.class.getClassLoader(), new Class<?>[]{UserRepository.class},
                 (object, method, args) -> {
-                    if (method.getName().equals("findByUsername")) {
+                    if (method.getName().equals("findByUsername")
+                            || method.getName().equals("findByUsernameForAuthentication")) {
                         return Optional.ofNullable(user);
                     }
                     if (method.getName().equals("save")) {

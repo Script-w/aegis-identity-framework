@@ -19,6 +19,7 @@ The system is built as a monorepo containing two primary microservices:
 * **Stateless JWT Auth:** Signed JWTs are issued in an `HttpOnly`, `SameSite=Strict` cookie after successful login.
 * **Multi-Factor Authentication (MFA):** Per-user Base32 TOTP enrollment, QR-code setup, enrollment confirmation, and MFA-required login support Google Authenticator and Authy-compatible clients.
 * **Protected MFA Secrets:** TOTP seeds are stored as authenticated AES-256-GCM envelopes and are decrypted only when needed for enrollment or verification.
+* **Account Lockout:** Five consecutive password or MFA failures lock the account for 15 minutes; both values are configurable.
 * **Authentication Event Logging:** Registration and login outcomes are recorded through the application logger; durable audit tables are not currently included.
 * **Database Hardening:** User IDs use PostgreSQL UUIDs generated with `pgcrypto` to reduce predictable ID enumeration.
 
@@ -46,6 +47,7 @@ Set the following environment variables in `.env` or your deployment secret stor
 * `JWT_SECRET`: at least 32 bytes for signing authentication tokens.
 * `JWT_EXPIRATION`: token lifetime in milliseconds; defaults to one hour.
 * `MFA_ENCRYPTION_KEY`: a Base64-encoded 32-byte key used only for MFA-secret encryption. Generate and store it independently from `JWT_SECRET`; changing it requires a deliberate key-rotation migration.
+* `AUTH_LOCKOUT_MAX_ATTEMPTS` and `AUTH_LOCKOUT_DURATION_SECONDS`: account lockout threshold and duration; defaults are five attempts and 900 seconds.
 
 ### 3. Launching the Services
 
