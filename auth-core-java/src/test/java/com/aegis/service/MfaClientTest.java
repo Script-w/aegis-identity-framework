@@ -1,41 +1,61 @@
 package com.aegis.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestClientResponseException;
-import org.springframework.web.client.RestTemplate;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class MfaClientTest {
-    private StubRestTemplate restTemplate;
+    private HttpServer server;
     private MfaClient mfaClient;
+    private final AtomicInteger requests = new AtomicInteger();
+    private volatile String receivedBody;
+    private volatile String receivedContentType;
+    private volatile int responseStatus;
+    private volatile String responseBody;
 
     @BeforeEach
-    void setUp() {
-        restTemplate = new StubRestTemplate();
-        mfaClient = new MfaClient(restTemplate, "http://security-brain.test");
+    void setUp() throws Exception {
+        responseStatus = 200;
+        responseBody = "{\"data\":{\"qr_code\":\"qr-data\"}}";
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/mfa/setup", exchange -> {
+            requests.incrementAndGet();
+            receivedContentType = exchange.getRequestHeaders().getFirst("Content-Type");
+            receivedBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(responseStatus, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+        mfaClient = new MfaClient(new ObjectMapper(),
+                "http://127.0.0.1:" + server.getAddress().getPort());
+    }
+
+    @AfterEach
+    void tearDown() {
+        server.stop(0);
     }
 
     @Test
-    void getQrCodeReturnsSuccessResponse() {
-        MfaClient.MfaSetupResponse body = new MfaClient.MfaSetupResponse();
-        MfaClient.MfaSetupResponse.Data data = new MfaClient.MfaSetupResponse.Data();
-        data.setQrCode("qr-data");
-        body.setData(data);
-        restTemplate.response = () -> ResponseEntity.ok(body);
-
+    void getQrCodeReturnsSuccessResponseAndSendsJsonBody() {
         Optional<MfaClient.MfaSetupResult> result = mfaClient.getQrCode("alice", "secret");
 
         assertTrue(result.isPresent());
         assertTrue(result.get().isSuccess());
         assertEquals("qr-data", result.get().getQrCode());
+        assertEquals(1, requests.get());
+        assertEquals("application/json", receivedContentType);
+        assertEquals("{\"username\":\"alice\",\"secret\":\"secret\"}", receivedBody);
     }
 
     @Test
@@ -44,12 +64,12 @@ class MfaClientTest {
                 () -> mfaClient.getQrCode(" ", "secret"));
 
         assertEquals("username must not be blank", exception.getMessage());
-        assertNull(restTemplate.response);
+        assertEquals(0, requests.get());
     }
 
     @Test
     void getQrCodeReturnsFailureForEmptyBody() {
-        restTemplate.response = () -> ResponseEntity.ok(null);
+        responseBody = "null";
 
         MfaClient.MfaSetupResult result = mfaClient.getQrCode("alice", "secret").orElseThrow();
 
@@ -59,12 +79,8 @@ class MfaClientTest {
 
     @Test
     void getQrCodeReturnsFailureForHttpError() {
-        RestClientResponseException exception = new RestClientResponseException(
-                "bad gateway", 502, "Bad Gateway", null,
-                "upstream failure".getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
-        restTemplate.response = () -> {
-            throw exception;
-        };
+        responseStatus = 502;
+        responseBody = "upstream failure";
 
         MfaClient.MfaSetupResult result = mfaClient.getQrCode("alice", "secret").orElseThrow();
 
@@ -78,17 +94,5 @@ class MfaClientTest {
 
         assertFalse(result.isSuccess());
         assertEquals("Unknown error", result.getError());
-    }
-
-    private static final class StubRestTemplate extends RestTemplate {
-        private Supplier<ResponseEntity<MfaClient.MfaSetupResponse>> response;
-
-        @Override
-        public <T> ResponseEntity<T> postForEntity(String url, Object request, Class<T> responseType,
-                                                    Object... uriVariables) {
-            @SuppressWarnings("unchecked")
-            ResponseEntity<T> result = (ResponseEntity<T>) response.get();
-            return result;
-        }
     }
 }

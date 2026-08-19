@@ -68,6 +68,8 @@ python main.py
 
 The Python command starts Uvicorn on port 8000. Docker Compose starts both services and PostgreSQL together.
 
+To run the full container integration flow, start the stack with `docker compose up --build --wait`, install `integration-tests/requirements.txt`, and run `python -m pytest integration-tests -v`. The test covers registration, password login, MFA enrollment and confirmation, and MFA-required login.
+
 ### Authentication Flow
 
 1. Fetch `GET /api/auth/csrf`, retain its `XSRF-TOKEN` cookie, and send that token in the `X-XSRF-TOKEN` header on every subsequent `POST` request.

@@ -110,12 +110,29 @@ class AuthServiceTest {
         userRepository.user = new User();
         mfaClient.result = Optional.empty();
 
-        MfaClient.MfaSetupResult result = authService.initiateMfaSetup("user");
+        AuthService.MfaEnrollmentResult result = authService.initiateMfaSetup("user");
 
         assertFalse(result.isSuccess());
         assertEquals("No response from Security Brain", result.getError());
         assertTrue(userRepository.savedUser.getMfaSecret().startsWith("v1:"));
         assertFalse(userRepository.savedUser.getMfaSecret().contains("JBSWY3DPEHPK3PXP"));
+    }
+
+    @Test
+    void initiateMfaSetupReturnsManualKeyButStoresOnlyCiphertext() {
+        userRepository.user = new User();
+        mfaClient.result = Optional.of(MfaClient.MfaSetupResult.success("encoded-qr"));
+
+        AuthService.MfaEnrollmentResult result = authService.initiateMfaSetup("user");
+
+        assertTrue(result.isSuccess());
+        assertEquals("encoded-qr", result.getQrCode());
+        assertNotNull(result.getManualEntryKey());
+        assertNotEquals(result.getManualEntryKey(), userRepository.savedUser.getMfaSecret());
+        assertEquals(
+                result.getManualEntryKey(),
+                new MfaSecretProtector(MFA_KEY).unprotect(userRepository.savedUser.getMfaSecret())
+        );
     }
 
     @Test
@@ -165,7 +182,7 @@ class AuthServiceTest {
         private Optional<MfaSetupResult> result = Optional.empty();
 
         private StubMfaClient() {
-            super(new org.springframework.web.client.RestTemplate(), "http://unused");
+            super(new com.fasterxml.jackson.databind.ObjectMapper(), "http://unused");
         }
 
         @Override

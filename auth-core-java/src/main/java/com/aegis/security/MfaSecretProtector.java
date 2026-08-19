@@ -1,6 +1,7 @@
 package com.aegis.security;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
@@ -21,6 +22,7 @@ public class MfaSecretProtector {
     private final SecretKeySpec key;
     private final SecureRandom secureRandom;
 
+    @Autowired
     public MfaSecretProtector(@Value("${mfa.encryption-key}") String encodedKey) {
         this(encodedKey, new SecureRandom());
     }
