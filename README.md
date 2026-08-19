@@ -17,7 +17,9 @@ The system is built as a monorepo containing two primary microservices:
 ## 🛡️ Security Features
 * **Argon2id Hashing:** Implemented via `argon2-jvm` to provide resistance against GPU/ASIC cracking attacks.
 * **Stateless JWT Auth:** Signed JWTs are issued in an `HttpOnly`, `SameSite=Strict` cookie after successful login.
-* **Multi-Factor Authentication (MFA):** TOTP helpers and QR-code setup support Google Authenticator and Authy-compatible clients.
+* **Multi-Factor Authentication (MFA):** Per-user Base32 TOTP enrollment, QR-code setup, enrollment confirmation, and MFA-required login support Google Authenticator and Authy-compatible clients.
+* **Protected MFA Secrets:** TOTP seeds are stored as authenticated AES-256-GCM envelopes and are decrypted only when needed for enrollment or verification.
+* **Account Lockout:** Five consecutive password or MFA failures lock the account for 15 minutes; both values are configurable.
 * **Authentication Event Logging:** Registration and login outcomes are recorded through the application logger; durable audit tables are not currently included.
 * **Database Hardening:** User IDs use PostgreSQL UUIDs generated with `pgcrypto` to reduce predictable ID enumeration.
 
@@ -44,6 +46,8 @@ Set the following environment variables in `.env` or your deployment secret stor
 * `DB_PASSWORD`: Database password.
 * `JWT_SECRET`: at least 32 bytes for signing authentication tokens.
 * `JWT_EXPIRATION`: token lifetime in milliseconds; defaults to one hour.
+* `MFA_ENCRYPTION_KEY`: a Base64-encoded 32-byte key used only for MFA-secret encryption. Generate and store it independently from `JWT_SECRET`; changing it requires a deliberate key-rotation migration.
+* `AUTH_LOCKOUT_MAX_ATTEMPTS` and `AUTH_LOCKOUT_DURATION_SECONDS`: account lockout threshold and duration; defaults are five attempts and 900 seconds.
 
 ### 3. Launching the Services
 
@@ -63,6 +67,15 @@ python main.py
  ```
 
 The Python command starts Uvicorn on port 8000. Docker Compose starts both services and PostgreSQL together.
+
+### Authentication Flow
+
+1. Fetch `GET /api/auth/csrf`, retain its `XSRF-TOKEN` cookie, and send that token in the `X-XSRF-TOKEN` header on every subsequent `POST` request.
+2. Register with `POST /api/auth/register`.
+3. Log in with `POST /api/auth/login` using the username and password. The response sets an HttpOnly JWT cookie.
+4. While authenticated, call `GET /api/auth/mfa/setup` to receive the QR-code payload.
+5. Submit the six-digit authenticator code to `POST /api/auth/mfa/confirm` to enable MFA.
+6. Future logins must include `mfaCode` in the login request before a JWT cookie is issued.
 
 ## 📊 Legacy Scaling Vision 
 Aegis follows the "Security by Design" philosophy. By decoupling the authentication engine from the threat analysis layer, the system is designed to scale horizontally. In a production environment, the Java core remains focused on low-latency throughput, while the Python layer can be scaled independently to handle complex security analytics.

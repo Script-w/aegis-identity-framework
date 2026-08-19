@@ -8,6 +8,11 @@ services:
       - "${SECURITY_BRAIN_PORT:-8000}:8000"
     volumes:
       - ./security-brain-python:/app  # Allows for hot-reloading code changes
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - aegis-net
 
@@ -29,7 +34,7 @@ services:
       aegis-db:
         condition: service_healthy # Waits for DB to be ready before starting Java
       security-brain:
-        condition: service_started
+        condition: service_healthy
     networks:
       - aegis-net
 

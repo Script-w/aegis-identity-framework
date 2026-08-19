@@ -3,26 +3,36 @@ package com.aegis.service;
 import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
+import com.aegis.security.MfaSecretProtector;
+import com.aegis.security.LoginAttemptPolicy;
+import com.aegis.security.TotpManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 import java.util.Optional;
+import java.time.Clock;
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuthServiceTest {
+    private static final String MFA_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
     private RecordingUserRepository userRepository;
     private PasswordHasher passwordHasher;
     private StubMfaClient mfaClient;
+    private TotpManager totpManager;
     private AuthService authService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         userRepository = new RecordingUserRepository();
         passwordHasher = new PasswordHasher();
         mfaClient = new StubMfaClient();
-        authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient);
+        totpManager = new TotpManager();
+        authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient, totpManager,
+                new MfaSecretProtector(MFA_KEY),
+                new LoginAttemptPolicy(5, Duration.ofMinutes(15), Clock.systemUTC()));
     }
 
     @Test
@@ -59,6 +69,43 @@ class AuthServiceTest {
     }
 
     @Test
+    void locksAccountAfterFiveFailedLogins() {
+        User user = new User();
+        user.setPasswordHash(passwordHasher.hash("password"));
+        userRepository.user = user;
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            assertFalse(authService.verifyLogin("user", "wrong-password"));
+        }
+
+        assertNotNull(user.getLockedUntil());
+        assertFalse(authService.verifyLogin("user", "password"));
+    }
+
+    @Test
+    void verifyLoginRequiresMfaCodeWhenMfaIsEnabled() {
+        User user = new User();
+        user.setPasswordHash(passwordHasher.hash("password"));
+        user.setMfaEnabled(true);
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.user = user;
+
+        assertFalse(authService.verifyLogin("user", "password", null));
+        assertFalse(authService.verifyLogin("user", "password", "12345"));
+    }
+
+    @Test
+    void confirmMfaSetupRejectsInvalidCode() {
+        User user = new User();
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.user = user;
+
+        assertFalse(authService.confirmMfaSetup("user", "000000"));
+        assertFalse(user.isMfaEnabled());
+        assertNull(userRepository.savedUser);
+    }
+
+    @Test
     void initiateMfaSetupReturnsFailureWhenSecurityBrainIsUnavailable() {
         userRepository.user = new User();
         mfaClient.result = Optional.empty();
@@ -67,6 +114,22 @@ class AuthServiceTest {
 
         assertFalse(result.isSuccess());
         assertEquals("No response from Security Brain", result.getError());
+        assertTrue(userRepository.savedUser.getMfaSecret().startsWith("v1:"));
+        assertFalse(userRepository.savedUser.getMfaSecret().contains("JBSWY3DPEHPK3PXP"));
+    }
+
+    @Test
+    void verifyLoginMigratesLegacyPlaintextMfaSecret() {
+        User user = new User();
+        user.setPasswordHash(passwordHasher.hash("password"));
+        user.setMfaEnabled(true);
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.user = user;
+
+        authService.verifyLogin("user", "password", "000000");
+
+        assertNotNull(userRepository.savedUser);
+        assertTrue(userRepository.savedUser.getMfaSecret().startsWith("v1:"));
     }
 
     @Test
@@ -83,7 +146,8 @@ class AuthServiceTest {
         private final UserRepository proxy = (UserRepository) Proxy.newProxyInstance(
                 UserRepository.class.getClassLoader(), new Class<?>[]{UserRepository.class},
                 (object, method, args) -> {
-                    if (method.getName().equals("findByUsername")) {
+                    if (method.getName().equals("findByUsername")
+                            || method.getName().equals("findByUsernameForAuthentication")) {
                         return Optional.ofNullable(user);
                     }
                     if (method.getName().equals("save")) {
