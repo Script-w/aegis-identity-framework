@@ -16,10 +16,10 @@ public class DbConnectionTest implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        System.out.println("🚀 PRE-FLIGHT CHECK: Testing Supabase Connection...");
+        System.out.println("🚀 PRE-FLIGHT CHECK: Testing PostgreSQL Connection...");
         try (Connection connection = dataSource.getConnection()) {
             if (connection != null && !connection.isClosed()) {
-                System.out.println("✅ SUCCESS: Connected to Supabase PostgreSQL!");
+                System.out.println("✅ SUCCESS: Connected to PostgreSQL!");
                 System.out.println("🔗 DB Metadata: " + connection.getMetaData().getDatabaseProductName());
             }
 
