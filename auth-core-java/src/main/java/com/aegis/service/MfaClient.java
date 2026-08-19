@@ -1,17 +1,18 @@
 package com.aegis.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClientResponseException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -19,14 +20,12 @@ import java.util.Optional;
 public class MfaClient {
 
     private static final Logger log = LoggerFactory.getLogger(MfaClient.class);
-    private final RestTemplate restTemplate;
-    
-    // This value is injected from .env file via application.properties
-    @Value("${aegis.security.brain-url}")
-    private String securityBrainUrl;
+    private final ObjectMapper objectMapper;
+    private final String securityBrainUrl;
 
-    public MfaClient(RestTemplate restTemplate, @Value("${aegis.security.brain-url}") String securityBrainUrl) {
-        this.restTemplate = restTemplate;
+    public MfaClient(ObjectMapper objectMapper,
+                     @Value("${aegis.security.brain-url}") String securityBrainUrl) {
+        this.objectMapper = objectMapper;
         this.securityBrainUrl = securityBrainUrl;
     }
 
@@ -42,8 +41,38 @@ public class MfaClient {
         MfaSetupRequest payload = new MfaSetupRequest(username, secret);
 
         try {
-            ResponseEntity<MfaSetupResponse> response = restTemplate.postForEntity(endpoint, new HttpEntity<>(payload), MfaSetupResponse.class);
-            MfaSetupResponse body = response.getBody();
+            String requestBody = objectMapper.writeValueAsString(payload);
+            byte[] requestBytes = requestBody.getBytes(StandardCharsets.UTF_8);
+            HttpURLConnection connection = (HttpURLConnection) URI.create(endpoint).toURL().openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(3_000);
+            connection.setReadTimeout(5_000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setFixedLengthStreamingMode(requestBytes.length);
+            try (var output = connection.getOutputStream()) {
+                output.write(requestBytes);
+            }
+
+            int status = connection.getResponseCode();
+            InputStream responseStream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            String responseText;
+            try (responseStream) {
+                responseText = responseStream == null
+                        ? ""
+                        : new String(responseStream.readAllBytes(), StandardCharsets.UTF_8);
+            } finally {
+                connection.disconnect();
+            }
+
+            if (status < 200 || status >= 300) {
+                log.error("Security Brain call failed with status {} for user {}", status, username);
+                return Optional.of(MfaSetupResult.failure("Security Brain error: " + status));
+            }
+
+            MfaSetupResponse body = responseText.isBlank()
+                    ? null
+                    : objectMapper.readValue(responseText, MfaSetupResponse.class);
 
             if (body == null) {
                 log.warn("Security Brain returned empty body for user {}", username);
@@ -57,9 +86,6 @@ public class MfaClient {
             }
 
             return Optional.of(MfaSetupResult.success(qr));
-        } catch (RestClientResponseException e) {
-            log.error("Security Brain call failed with status {} for user {}: {}", e.getRawStatusCode(), username, e.getResponseBodyAsString(), e);
-            return Optional.of(MfaSetupResult.failure("Security Brain error: " + e.getRawStatusCode()));
         } catch (Exception e) {
             log.error("Security Brain call failed for user {}", username, e);
             return Optional.of(MfaSetupResult.failure("Unable to reach Security Brain"));

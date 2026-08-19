@@ -6,7 +6,6 @@ import com.aegis.security.PasswordHasher;
 import com.aegis.security.MfaSecretProtector;
 import com.aegis.security.LoginAttemptPolicy;
 import com.aegis.security.TotpManager;
-import com.aegis.service.MfaClient.MfaSetupResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -37,7 +36,7 @@ public class AuthService {
         this.loginAttemptPolicy = loginAttemptPolicy;
     }
 
-    public MfaSetupResult initiateMfaSetup(String username) {
+    public MfaEnrollmentResult initiateMfaSetup(String username) {
         return userRepository.findByUsername(username)
             .map(user -> {
                 String storedSecret = user.getMfaSecret();
@@ -55,8 +54,12 @@ public class AuthService {
                     migrateLegacySecret(user, storedSecret, secret);
                 }
 
-                return mfaClient.getQrCode(username, secret)
-                        .orElse(MfaSetupResult.failure("No response from Security Brain"));
+                MfaClient.MfaSetupResult setupResult = mfaClient.getQrCode(username, secret)
+                        .orElse(MfaClient.MfaSetupResult.failure("No response from Security Brain"));
+                if (!setupResult.isSuccess()) {
+                    return MfaEnrollmentResult.failure(setupResult.getError());
+                }
+                return MfaEnrollmentResult.success(setupResult.getQrCode(), secret);
             })
             .orElseThrow(() -> new RuntimeException("User not found"));
     }
@@ -162,6 +165,44 @@ public class AuthService {
         if (!mfaSecretProtector.isProtected(storedSecret)) {
             user.setMfaSecret(mfaSecretProtector.protect(plaintextSecret));
             userRepository.save(user);
+        }
+    }
+
+    public static final class MfaEnrollmentResult {
+        private final boolean success;
+        private final String qrCode;
+        private final String manualEntryKey;
+        private final String error;
+
+        private MfaEnrollmentResult(boolean success, String qrCode, String manualEntryKey, String error) {
+            this.success = success;
+            this.qrCode = qrCode;
+            this.manualEntryKey = manualEntryKey;
+            this.error = error;
+        }
+
+        public static MfaEnrollmentResult success(String qrCode, String manualEntryKey) {
+            return new MfaEnrollmentResult(true, qrCode, manualEntryKey, null);
+        }
+
+        public static MfaEnrollmentResult failure(String error) {
+            return new MfaEnrollmentResult(false, null, null, error);
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getQrCode() {
+            return qrCode;
+        }
+
+        public String getManualEntryKey() {
+            return manualEntryKey;
+        }
+
+        public String getError() {
+            return error;
         }
     }
 }

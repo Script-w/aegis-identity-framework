@@ -4,7 +4,6 @@ import com.aegis.dto.RegistrationRequest;
 import com.aegis.dto.LoginRequest;
 import com.aegis.dto.MfaCodeRequest;
 import com.aegis.service.AuthService;
-import com.aegis.service.MfaClient;
 import com.aegis.security.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -68,7 +67,7 @@ public class AuthController {
     }
 
     @GetMapping("/mfa/setup")
-    public ResponseEntity<MfaClient.MfaSetupResult> setupMfa(Authentication authentication) {
+    public ResponseEntity<AuthService.MfaEnrollmentResult> setupMfa(Authentication authentication) {
         return ResponseEntity.ok(authService.initiateMfaSetup(authentication.getName()));
     }
 
