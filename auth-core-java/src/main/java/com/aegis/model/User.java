@@ -20,7 +20,7 @@ public class User {
     @Column(name = "mfa_enabled")
     private boolean mfaEnabled = false;
 
-    @Column(name = "mfa_secret")
+    @Column(name = "mfa_secret", length = 512)
     private String mfaSecret;
 
     @Column(name = "created_at", updatable = false)

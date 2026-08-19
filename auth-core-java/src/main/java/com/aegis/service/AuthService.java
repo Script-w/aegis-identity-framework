@@ -3,6 +3,7 @@ package com.aegis.service;
 import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
+import com.aegis.security.MfaSecretProtector;
 import com.aegis.security.TotpManager;
 import com.aegis.service.MfaClient.MfaSetupResult;
 import org.slf4j.Logger;
@@ -17,27 +18,34 @@ public class AuthService {
     private final PasswordHasher passwordHasher;
     private final MfaClient mfaClient;
     private final TotpManager totpManager;
+    private final MfaSecretProtector mfaSecretProtector;
 
     public AuthService(UserRepository userRepository, PasswordHasher passwordHasher,
-                       MfaClient mfaClient, TotpManager totpManager) {
+                       MfaClient mfaClient, TotpManager totpManager,
+                       MfaSecretProtector mfaSecretProtector) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
         this.mfaClient = mfaClient;
         this.totpManager = totpManager;
+        this.mfaSecretProtector = mfaSecretProtector;
     }
 
     public MfaSetupResult initiateMfaSetup(String username) {
         return userRepository.findByUsername(username)
             .map(user -> {
-                String secret = user.getMfaSecret();
-                if (secret == null || secret.isBlank()) {
+                String storedSecret = user.getMfaSecret();
+                String secret;
+                if (storedSecret == null || storedSecret.isBlank()) {
                     try {
                         secret = totpManager.secretToBase32(totpManager.generateSecret());
                     } catch (java.security.NoSuchAlgorithmException exception) {
                         throw new IllegalStateException("Unable to generate MFA secret", exception);
                     }
-                    user.setMfaSecret(secret);
+                    user.setMfaSecret(mfaSecretProtector.protect(secret));
                     userRepository.save(user);
+                } else {
+                    secret = mfaSecretProtector.unprotect(storedSecret);
+                    migrateLegacySecret(user, storedSecret, secret);
                 }
 
                 return mfaClient.getQrCode(username, secret)
@@ -49,11 +57,16 @@ public class AuthService {
     public boolean confirmMfaSetup(String username, String code) {
         return userRepository.findByUsername(username)
                 .map(user -> {
-                    if (user.getMfaSecret() == null || user.getMfaSecret().isBlank()) {
+                    String storedSecret = user.getMfaSecret();
+                    if (storedSecret == null || storedSecret.isBlank()) {
                         return false;
                     }
-                    if (!verifyTotp(user.getMfaSecret(), code)) {
+                    String secret = mfaSecretProtector.unprotect(storedSecret);
+                    if (!verifyTotp(secret, code)) {
                         return false;
+                    }
+                    if (!mfaSecretProtector.isProtected(storedSecret)) {
+                        user.setMfaSecret(mfaSecretProtector.protect(secret));
                     }
                     user.setMfaEnabled(true);
                     userRepository.save(user);
@@ -87,7 +100,19 @@ public class AuthService {
             .map(user -> {
                 char[] passwordChars = password.toCharArray();
                 boolean passwordValid = passwordHasher.verify(user.getPasswordHash(), passwordChars);
-                return passwordValid && (!user.isMfaEnabled() || verifyTotp(user.getMfaSecret(), mfaCode));
+                if (!passwordValid || !user.isMfaEnabled()) {
+                    return passwordValid;
+                }
+                String storedSecret = user.getMfaSecret();
+                String secret;
+                try {
+                    secret = mfaSecretProtector.unprotect(storedSecret);
+                } catch (IllegalStateException exception) {
+                    log.error("MFA secret could not be decrypted for user {}", username);
+                    return false;
+                }
+                migrateLegacySecret(user, storedSecret, secret);
+                return verifyTotp(secret, mfaCode);
             })
             .orElse(false);
         log.info("Login attempt completed with success={}", verified);
@@ -102,6 +127,13 @@ public class AuthService {
             return totpManager.verifyCode(totpManager.secretFromBase32(secret), Integer.parseInt(code));
         } catch (java.security.InvalidKeyException | NumberFormatException exception) {
             return false;
+        }
+    }
+
+    private void migrateLegacySecret(User user, String storedSecret, String plaintextSecret) {
+        if (!mfaSecretProtector.isProtected(storedSecret)) {
+            user.setMfaSecret(mfaSecretProtector.protect(plaintextSecret));
+            userRepository.save(user);
         }
     }
 }

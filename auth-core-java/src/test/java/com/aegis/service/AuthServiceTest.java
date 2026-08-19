@@ -3,6 +3,7 @@ package com.aegis.service;
 import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
+import com.aegis.security.MfaSecretProtector;
 import com.aegis.security.TotpManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuthServiceTest {
+    private static final String MFA_KEY = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
     private RecordingUserRepository userRepository;
     private PasswordHasher passwordHasher;
     private StubMfaClient mfaClient;
@@ -25,7 +27,8 @@ class AuthServiceTest {
         passwordHasher = new PasswordHasher();
         mfaClient = new StubMfaClient();
         totpManager = new TotpManager();
-        authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient, totpManager);
+        authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient, totpManager,
+                new MfaSecretProtector(MFA_KEY));
     }
 
     @Test
@@ -93,6 +96,22 @@ class AuthServiceTest {
 
         assertFalse(result.isSuccess());
         assertEquals("No response from Security Brain", result.getError());
+        assertTrue(userRepository.savedUser.getMfaSecret().startsWith("v1:"));
+        assertFalse(userRepository.savedUser.getMfaSecret().contains("JBSWY3DPEHPK3PXP"));
+    }
+
+    @Test
+    void verifyLoginMigratesLegacyPlaintextMfaSecret() {
+        User user = new User();
+        user.setPasswordHash(passwordHasher.hash("password"));
+        user.setMfaEnabled(true);
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.user = user;
+
+        authService.verifyLogin("user", "password", "000000");
+
+        assertNotNull(userRepository.savedUser);
+        assertTrue(userRepository.savedUser.getMfaSecret().startsWith("v1:"));
     }
 
     @Test

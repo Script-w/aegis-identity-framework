@@ -84,7 +84,7 @@ class AuthControllerTest {
         private boolean loginResult;
 
         private RecordingAuthService() {
-            super(null, null, null, null);
+            super(null, null, null, null, null);
         }
 
         @Override
