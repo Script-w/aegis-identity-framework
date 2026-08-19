@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 
 import java.time.Duration;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -44,24 +45,25 @@ public class AuthController {
             return ResponseEntity.status(401).build();
         }
 
-        ResponseCookie cookie = ResponseCookie.from(cookieName, jwtService.generateToken(request.getUsername()))
+        ResponseCookie cookie = ResponseCookie.from(Objects.requireNonNull(cookieName),
+                Objects.requireNonNull(jwtService.generateToken(request.getUsername())))
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .sameSite("Strict")
                 .path("/")
-                .maxAge(Duration.ofMillis(jwtService.getExpirationMs()))
+                .maxAge(Objects.requireNonNull(Duration.ofMillis(jwtService.getExpirationMs())))
                 .build();
         return ResponseEntity.ok().header("Set-Cookie", cookie.toString()).build();
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
-        ResponseCookie cookie = ResponseCookie.from(cookieName, "")
+        ResponseCookie cookie = ResponseCookie.from(Objects.requireNonNull(cookieName), "")
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .sameSite("Strict")
                 .path("/")
-                .maxAge(Duration.ZERO)
+                .maxAge(Objects.requireNonNull(Duration.ZERO))
                 .build();
         return ResponseEntity.ok().header("Set-Cookie", cookie.toString()).build();
     }

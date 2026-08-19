@@ -33,7 +33,8 @@ public class MfaClient {
         validateInput(username, "username");
         validateInput(secret, "secret");
 
-        String endpoint = UriComponentsBuilder.fromHttpUrl(securityBrainUrl)
+        String endpoint = UriComponentsBuilder.fromUriString(
+                Objects.requireNonNull(securityBrainUrl, "securityBrainUrl"))
                 .path("/mfa/setup")
                 .build()
                 .toUriString();

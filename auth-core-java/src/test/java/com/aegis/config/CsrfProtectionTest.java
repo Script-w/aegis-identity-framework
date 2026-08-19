@@ -52,7 +52,7 @@ class CsrfProtectionTest {
     @Test
     void registrationWithoutCsrfTokenIsForbidden() throws Exception {
         mockMvc.perform(post("/api/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .content("{\"username\":\"alice\",\"password\":\"password\"}"))
                 .andExpect(status().isForbidden());
     }
@@ -69,7 +69,7 @@ class CsrfProtectionTest {
         mockMvc.perform(post("/api/auth/register")
                         .cookie(csrfCookie)
                         .header("X-XSRF-TOKEN", csrfToken)
-                        .contentType(MediaType.APPLICATION_JSON)
+                        .contentType(MediaType.APPLICATION_JSON_VALUE)
                         .content("{\"username\":\"alice\",\"password\":\"password\"}"))
                 .andExpect(status().isOk());
     }
