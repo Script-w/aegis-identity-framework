@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import qrcode
 import pyotp
 import io
@@ -10,13 +10,13 @@ app = FastAPI(title="Aegis Security Brain")
 
 # The schema matching our Java MfaClient request
 class MfaSetupRequest(BaseModel):
-    username: str
-    secret: str
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    secret: str = Field(min_length=16, max_length=128, pattern=r"^[A-Z2-7]+=*$")
 
 # The schema for verification
 class MfaVerifyRequest(BaseModel):
-    secret: str
-    code: str
+    secret: str = Field(min_length=16, max_length=128, pattern=r"^[A-Z2-7]+=*$")
+    code: str = Field(pattern=r"^\d{6}$")
 
 @app.post("/mfa/verify")
 def verify_mfa(request: MfaVerifyRequest):
@@ -27,11 +27,12 @@ def verify_mfa(request: MfaVerifyRequest):
 
         if is_valid:
             return {"status": "success", "message": "Code verified"}
-        else:
-            return {"status": "failure", "message": "Invalid code"}, 400
+        raise HTTPException(status_code=400, detail="Invalid code")
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unable to verify MFA code") from exc
 
 @app.get("/health")
 def health_check():
