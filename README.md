@@ -68,11 +68,12 @@ The Python command starts Uvicorn on port 8000. Docker Compose starts both servi
 
 ### Authentication Flow
 
-1. Register with `POST /api/auth/register`.
-2. Log in with `POST /api/auth/login` using the username and password. The response sets an HttpOnly JWT cookie.
-3. While authenticated, call `GET /api/auth/mfa/setup` to receive the QR-code payload.
-4. Submit the six-digit authenticator code to `POST /api/auth/mfa/confirm` to enable MFA.
-5. Future logins must include `mfaCode` in the login request before a JWT cookie is issued.
+1. Fetch `GET /api/auth/csrf`, retain its `XSRF-TOKEN` cookie, and send that token in the `X-XSRF-TOKEN` header on every subsequent `POST` request.
+2. Register with `POST /api/auth/register`.
+3. Log in with `POST /api/auth/login` using the username and password. The response sets an HttpOnly JWT cookie.
+4. While authenticated, call `GET /api/auth/mfa/setup` to receive the QR-code payload.
+5. Submit the six-digit authenticator code to `POST /api/auth/mfa/confirm` to enable MFA.
+6. Future logins must include `mfaCode` in the login request before a JWT cookie is issued.
 
 ## 📊 Legacy Scaling Vision 
 Aegis follows the "Security by Design" philosophy. By decoupling the authentication engine from the threat analysis layer, the system is designed to scale horizontally. In a production environment, the Java core remains focused on low-latency throughput, while the Python layer can be scaled independently to handle complex security analytics.
