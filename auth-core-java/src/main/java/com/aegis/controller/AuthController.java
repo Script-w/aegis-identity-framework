@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
+import jakarta.validation.Valid;
 
 import java.time.Duration;
 
@@ -33,13 +34,13 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegistrationRequest request) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegistrationRequest request) {
         authService.registerUser(request.getUsername(), request.getPassword());
         return ResponseEntity.ok("User registered successfully. Proceed to MFA enrollment.");
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Void> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest request) {
         if (!authService.verifyLogin(request.getUsername(), request.getPassword(), request.getMfaCode())) {
             return ResponseEntity.status(401).build();
         }
@@ -72,7 +73,7 @@ public class AuthController {
     }
 
     @PostMapping("/mfa/confirm")
-    public ResponseEntity<Void> confirmMfa(Authentication authentication, @RequestBody MfaCodeRequest request) {
+    public ResponseEntity<Void> confirmMfa(Authentication authentication, @Valid @RequestBody MfaCodeRequest request) {
         if (!authService.confirmMfaSetup(authentication.getName(), request.getCode())) {
             return ResponseEntity.status(400).build();
         }

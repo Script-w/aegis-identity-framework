@@ -1,7 +1,15 @@
 package com.aegis.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class RegistrationRequest {
+    @NotBlank
+    @Size(max = 50)
     private String username;
+
+    @NotBlank
+    @Size(min = 8, max = 128)
     private String password;
 
     public String getUsername() {

@@ -1,8 +1,18 @@
 package com.aegis.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class LoginRequest {
+    @NotBlank
+    @Size(max = 50)
     private String username;
+
+    @NotBlank
+    @Size(max = 128)
     private String password;
+
+    @Size(min = 6, max = 6)
     private String mfaCode;
 
     public String getUsername() {
