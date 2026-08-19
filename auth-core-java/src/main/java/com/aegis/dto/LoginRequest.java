@@ -1,18 +1,21 @@
 package com.aegis.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class LoginRequest {
-    @NotBlank
-    @Size(max = 50)
+    @NotBlank(message = "username is required")
+    @Size(min = 3, max = 50, message = "username must be between 3 and 50 characters")
+    @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            message = "username may contain letters, numbers, dots, underscores, and hyphens")
     private String username;
 
-    @NotBlank
-    @Size(max = 128)
+    @NotBlank(message = "password is required")
+    @Size(max = 128, message = "password must not exceed 128 characters")
     private String password;
 
-    @Size(min = 6, max = 6)
+    @Pattern(regexp = "\\d{6}", message = "mfaCode must contain exactly 6 digits")
     private String mfaCode;
 
     public String getUsername() {
