@@ -84,7 +84,7 @@ class AuthControllerTest {
         private boolean loginResult;
 
         private RecordingAuthService() {
-            super(null, null, null);
+            super(null, null, null, null);
         }
 
         @Override
@@ -94,7 +94,7 @@ class AuthControllerTest {
         }
 
         @Override
-        public boolean verifyLogin(String username, String password) {
+        public boolean verifyLogin(String username, String password, String mfaCode) {
             return loginResult;
         }
     }

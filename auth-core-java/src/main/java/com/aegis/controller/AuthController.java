@@ -2,6 +2,7 @@ package com.aegis.controller;
 
 import com.aegis.dto.RegistrationRequest;
 import com.aegis.dto.LoginRequest;
+import com.aegis.dto.MfaCodeRequest;
 import com.aegis.service.AuthService;
 import com.aegis.service.MfaClient;
 import com.aegis.security.JwtService;
@@ -39,7 +40,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<Void> login(@RequestBody LoginRequest request) {
-        if (!authService.verifyLogin(request.getUsername(), request.getPassword())) {
+        if (!authService.verifyLogin(request.getUsername(), request.getPassword(), request.getMfaCode())) {
             return ResponseEntity.status(401).build();
         }
 
@@ -68,5 +69,13 @@ public class AuthController {
     @GetMapping("/mfa/setup")
     public ResponseEntity<MfaClient.MfaSetupResult> setupMfa(Authentication authentication) {
         return ResponseEntity.ok(authService.initiateMfaSetup(authentication.getName()));
+    }
+
+    @PostMapping("/mfa/confirm")
+    public ResponseEntity<Void> confirmMfa(Authentication authentication, @RequestBody MfaCodeRequest request) {
+        if (!authService.confirmMfaSetup(authentication.getName(), request.getCode())) {
+            return ResponseEntity.status(400).build();
+        }
+        return ResponseEntity.ok().build();
     }
 }

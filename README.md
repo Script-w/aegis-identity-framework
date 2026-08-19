@@ -17,7 +17,7 @@ The system is built as a monorepo containing two primary microservices:
 ## 🛡️ Security Features
 * **Argon2id Hashing:** Implemented via `argon2-jvm` to provide resistance against GPU/ASIC cracking attacks.
 * **Stateless JWT Auth:** Signed JWTs are issued in an `HttpOnly`, `SameSite=Strict` cookie after successful login.
-* **Multi-Factor Authentication (MFA):** TOTP helpers and QR-code setup support Google Authenticator and Authy-compatible clients.
+* **Multi-Factor Authentication (MFA):** Per-user Base32 TOTP enrollment, QR-code setup, enrollment confirmation, and MFA-required login support Google Authenticator and Authy-compatible clients.
 * **Authentication Event Logging:** Registration and login outcomes are recorded through the application logger; durable audit tables are not currently included.
 * **Database Hardening:** User IDs use PostgreSQL UUIDs generated with `pgcrypto` to reduce predictable ID enumeration.
 
@@ -63,6 +63,14 @@ python main.py
  ```
 
 The Python command starts Uvicorn on port 8000. Docker Compose starts both services and PostgreSQL together.
+
+### Authentication Flow
+
+1. Register with `POST /api/auth/register`.
+2. Log in with `POST /api/auth/login` using the username and password. The response sets an HttpOnly JWT cookie.
+3. While authenticated, call `GET /api/auth/mfa/setup` to receive the QR-code payload.
+4. Submit the six-digit authenticator code to `POST /api/auth/mfa/confirm` to enable MFA.
+5. Future logins must include `mfaCode` in the login request before a JWT cookie is issued.
 
 ## 📊 Legacy Scaling Vision 
 Aegis follows the "Security by Design" philosophy. By decoupling the authentication engine from the threat analysis layer, the system is designed to scale horizontally. In a production environment, the Java core remains focused on low-latency throughput, while the Python layer can be scaled independently to handle complex security analytics.

@@ -2,6 +2,7 @@ package com.aegis.security;
 
 import org.springframework.stereotype.Component;
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
+import org.apache.commons.codec.binary.Base32;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -45,6 +46,14 @@ public class TotpManager {
         return new SecretKeySpec(Base64.getDecoder().decode(base64), "HmacSHA1");
     }
 
+    public String secretToBase32(SecretKey key) {
+        return new Base32().encodeToString(key.getEncoded()).replace("=", "");
+    }
+
+    public SecretKey secretFromBase32(String base32) {
+        return new SecretKeySpec(new Base32().decode(base32), "HmacSHA1");
+    }
+
     public boolean verifyCode (SecretKey key, int code) throws InvalidKeyException {
         Instant now = Instant.now();
         int generated = totp.generateOneTimePassword(key, now);
@@ -52,7 +61,7 @@ public class TotpManager {
     }
  
     public String getOtpAuthUri(String accountName, String issuer, SecretKey key) {
-        String secret = secretToBase64(key);
+        String secret = secretToBase32(key);
         String label = URLEncoder.encode(issuer + ":" + accountName, StandardCharsets.UTF_8);
         return String.format("otpauth://totp/%s?secret=%s&issuer=%s&algorithm=%s&digits=6&period=30", label, secret, URLEncoder.encode(issuer, StandardCharsets.UTF_8), "SHA1");
     }

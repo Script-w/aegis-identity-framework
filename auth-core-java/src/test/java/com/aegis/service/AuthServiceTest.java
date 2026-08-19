@@ -3,6 +3,7 @@ package com.aegis.service;
 import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
+import com.aegis.security.TotpManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,14 +16,16 @@ class AuthServiceTest {
     private RecordingUserRepository userRepository;
     private PasswordHasher passwordHasher;
     private StubMfaClient mfaClient;
+    private TotpManager totpManager;
     private AuthService authService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         userRepository = new RecordingUserRepository();
         passwordHasher = new PasswordHasher();
         mfaClient = new StubMfaClient();
-        authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient);
+        totpManager = new TotpManager();
+        authService = new AuthService(userRepository.proxy, passwordHasher, mfaClient, totpManager);
     }
 
     @Test
@@ -56,6 +59,29 @@ class AuthServiceTest {
     @Test
     void verifyLoginReturnsFalseForUnknownUser() {
         assertFalse(authService.verifyLogin("missing", "password"));
+    }
+
+    @Test
+    void verifyLoginRequiresMfaCodeWhenMfaIsEnabled() {
+        User user = new User();
+        user.setPasswordHash(passwordHasher.hash("password"));
+        user.setMfaEnabled(true);
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.user = user;
+
+        assertFalse(authService.verifyLogin("user", "password", null));
+        assertFalse(authService.verifyLogin("user", "password", "12345"));
+    }
+
+    @Test
+    void confirmMfaSetupRejectsInvalidCode() {
+        User user = new User();
+        user.setMfaSecret("JBSWY3DPEHPK3PXP");
+        userRepository.user = user;
+
+        assertFalse(authService.confirmMfaSetup("user", "000000"));
+        assertFalse(user.isMfaEnabled());
+        assertNull(userRepository.savedUser);
     }
 
     @Test

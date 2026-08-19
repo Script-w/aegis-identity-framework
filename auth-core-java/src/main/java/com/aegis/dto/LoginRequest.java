@@ -3,6 +3,7 @@ package com.aegis.dto;
 public class LoginRequest {
     private String username;
     private String password;
+    private String mfaCode;
 
     public String getUsername() {
         return username;
@@ -18,5 +19,13 @@ public class LoginRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getMfaCode() {
+        return mfaCode;
+    }
+
+    public void setMfaCode(String mfaCode) {
+        this.mfaCode = mfaCode;
     }
 }
