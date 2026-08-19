@@ -4,10 +4,13 @@ import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
 import com.aegis.service.MfaClient.MfaSetupResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
@@ -34,6 +37,7 @@ public class AuthService {
     
     public void registerUser(String username, String password) {
         if (userRepository.findByUsername(username).isPresent()) {
+            log.warn("Registration rejected for existing username");
             throw new RuntimeException("Username already taken!");
         }
 
@@ -44,14 +48,17 @@ public class AuthService {
         newUser.setPasswordHash(securedHash); 
 
         userRepository.save(newUser);
+        log.info("User registration succeeded");
     }
 
     public boolean verifyLogin(String username, String password) {
-        return userRepository.findByUsername(username)
+        boolean verified = userRepository.findByUsername(username)
             .map(user -> {
                 char[] passwordChars = password.toCharArray();
                 return passwordHasher.verify(user.getPasswordHash(), passwordChars);
             })
             .orElse(false);
+        log.info("Login attempt completed with success={}", verified);
+        return verified;
     }
 }
