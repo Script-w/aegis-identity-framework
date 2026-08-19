@@ -24,7 +24,7 @@ The system is built as a monorepo containing two primary microservices:
 ---
 
 ## 🛠️ Tech Stack
-* **Languages:** Java 17, Python 3.11
+* **Languages:** Java 25, Python 3.11
 * **Frameworks:** Spring Boot 3, Spring Security 6, FastAPI
 * **Database:** PostgreSQL (Hosted on Supabase)
 * **Infrastructure:** GitHub Codespaces (Dev Containers)

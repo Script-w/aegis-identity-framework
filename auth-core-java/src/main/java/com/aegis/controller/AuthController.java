@@ -2,16 +2,18 @@ package com.aegis.controller;
 
 import com.aegis.dto.RegistrationRequest;
 import com.aegis.service.AuthService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor // Lombok generates the constructor for AuthService
 public class AuthController {
 
     private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody RegistrationRequest request) {

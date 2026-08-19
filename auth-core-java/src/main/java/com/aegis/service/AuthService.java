@@ -4,16 +4,20 @@ import com.aegis.model.User;
 import com.aegis.repository.UserRepository;
 import com.aegis.security.PasswordHasher;
 import com.aegis.service.MfaClient.MfaSetupResult;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor // This handles the injection for all 'final' fields automatically
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordHasher passwordHasher;
     private final MfaClient mfaClient;
+
+    public AuthService(UserRepository userRepository, PasswordHasher passwordHasher, MfaClient mfaClient) {
+        this.userRepository = userRepository;
+        this.passwordHasher = passwordHasher;
+        this.mfaClient = mfaClient;
+    }
 
     public MfaSetupResult initiateMfaSetup(String username) {
         return userRepository.findByUsername(username)
