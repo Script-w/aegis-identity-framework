@@ -38,7 +38,7 @@ jobs:
         env:
           # These must match what your application-test.properties or application.properties expects
           DB_URL: jdbc:h2:mem:testdb
-          DB_USERNAME: sa
+          DB_USER: sa
           DB_PASSWORD: ""
           JWT_SECRET: "ci_testing_secret_key_32_characters_long"
           JWT_EXPIRATION: 3600000
