@@ -23,7 +23,7 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable for local dev/APIs
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll() // <--- OPEN THE FRONT DOOR
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/logout").permitAll()
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

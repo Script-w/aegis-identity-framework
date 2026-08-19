@@ -3,11 +3,13 @@ package com.aegis.controller;
 import com.aegis.dto.RegistrationRequest;
 import com.aegis.dto.LoginRequest;
 import com.aegis.service.AuthService;
+import com.aegis.service.MfaClient;
 import com.aegis.security.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 import java.time.Duration;
 
@@ -61,5 +63,10 @@ public class AuthController {
                 .maxAge(Duration.ZERO)
                 .build();
         return ResponseEntity.ok().header("Set-Cookie", cookie.toString()).build();
+    }
+
+    @GetMapping("/mfa/setup")
+    public ResponseEntity<MfaClient.MfaSetupResult> setupMfa(Authentication authentication) {
+        return ResponseEntity.ok(authService.initiateMfaSetup(authentication.getName()));
     }
 }
